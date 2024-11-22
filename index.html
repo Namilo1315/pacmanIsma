@@ -1,0 +1,478 @@
+<html><head><base href="./" target="_top"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pacman Game</title>
+<style>
+body {
+    background: #111;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    box-sizing: border-box;
+}
+
+#welcomeScreen {
+    color: #ffff00;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#welcomeScreen h1 {
+    font-size: 2.5em;
+    text-shadow: 0 0 20px #ffff00;
+    margin-bottom: 10px;
+}
+
+#welcomeScreen p {
+    font-size: 1.2em;
+    color: #ffd700;
+    margin-bottom: 20px;
+}
+
+#welcomeScreen button,
+#exitButton {
+    background: #2121ff;
+    color: #ffd700;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.2em;
+    margin: 10px;
+    transition: all 0.3s;
+}
+
+#exitButton {
+    display: block !important;
+    margin: 20px auto !important;
+}
+
+#welcomeScreen button:hover,
+#exitButton:hover {
+    background: #4141ff;
+    box-shadow: 0 0 10px #2121ff;
+}
+
+#gameBoard {
+    background: #000;
+    border: 4px solid #2121ff;
+    box-shadow: 0 0 20px #2121ff;
+    display: none;
+    max-width: 100%;
+    max-height: 80vh;
+}
+
+.score {
+    color: #ffd700;
+    font-size: 28px;
+    margin-bottom: 20px;
+    text-align: center;
+    display: none;
+    text-shadow: 0 0 10px #ffd700;
+}
+
+#loadingScreen {
+    color: #ffff00;
+    font-size: 48px;
+    text-align: center;
+    animation: pulse 0.5s infinite alternate;
+    text-shadow: 0 0 20px #ffff00;
+    display: none;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    padding: 20px;
+    border: 3px solid #2121ff;
+    border-radius: 10px;
+    color: #ffd700;
+    text-align: center;
+    z-index: 1000;
+    box-shadow: 0 0 20px #2121ff;
+    max-width: 90%;
+}
+
+.modal button {
+    background: #2121ff;
+    color: #ffd700;
+    border: none;
+    padding: 10px 20px;
+    margin-top: 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.modal button:hover {
+    background: #4141ff;
+    box-shadow: 0 0 10px #2121ff;
+}
+
+@keyframes pulse {
+    from { transform: scale(1); opacity: 0.8; }
+    to { transform: scale(1.1); opacity: 1; }
+}
+
+@media (max-width: 600px) {
+    #gameBoard {
+        width: 300px;
+        height: 300px;
+    }
+    
+    .score {
+        font-size: 20px;
+    }
+    
+    #loadingScreen {
+        font-size: 32px;
+    }
+}
+</style>
+</head>
+<body>
+<div id="welcomeScreen">
+    <h1>Bienvenidos a Pacman</h1>
+    <p>Juego creado por Ismael</p>
+    <button id="startButton">Comenzar</button>
+</div>
+
+<div id="loadingScreen">1</div>
+
+<div id="game">
+    <div class="score">Score: <span id="score">0</span></div>
+    <canvas id="gameBoard" width="400" height="400"></canvas>
+    <button id="exitButton" style="display: none;">Salir del juego</button>
+</div>
+
+<div id="messageModal" class="modal">
+    <h2 id="modalTitle"></h2>
+    <p id="modalMessage"></p>
+    <button id="modalButton">Continuar</button>
+</div>
+
+<script>
+const canvas = document.getElementById('gameBoard');
+const ctx = canvas.getContext('2d');
+const CELL_SIZE = 20;
+const GRID_SIZE = 20;
+let score = 0;
+let level = 1;
+
+const loadingScreen = document.getElementById('loadingScreen');
+const gameBoard = document.getElementById('gameBoard');
+const scoreDiv = document.querySelector('.score');
+const modal = document.getElementById('messageModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalMessage = document.getElementById('modalMessage');
+const modalButton = document.getElementById('modalButton');
+
+function showModal(title, message) {
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    modal.style.display = 'block';
+}
+
+modalButton.addEventListener('click', () => {
+    modal.style.display = 'none';
+    if (dots.length === 0) {
+        level++;
+        initDots();
+        initGame();
+    }
+});
+
+function showWelcomeScreen() {
+    document.getElementById('welcomeScreen').style.display = 'block';
+    document.getElementById('game').style.display = 'none';
+    document.getElementById('exitButton').style.display = 'none';
+    loadingScreen.style.display = 'none';
+    gameBoard.style.display = 'none';
+    scoreDiv.style.display = 'none';
+}
+
+function startGame() {
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
+    document.getElementById('exitButton').style.display = 'block';
+    loadingScreen.style.display = 'block';
+    startLoadingSequence();
+}
+
+document.getElementById('startButton').addEventListener('click', startGame);
+document.getElementById('exitButton').addEventListener('click', () => {
+    showWelcomeScreen();
+    score = 0;
+    level = 1;
+    document.getElementById('score').textContent = score;
+    pacman.x = CELL_SIZE;
+    pacman.y = CELL_SIZE;
+    ghosts[0] = {x: CELL_SIZE * 18, y: CELL_SIZE * 18, direction: 0, color: '#ff0000'};
+    ghosts[1] = {x: CELL_SIZE * 18, y: CELL_SIZE, direction: 0, color: '#ff69b4'};
+    ghosts[2] = {x: CELL_SIZE, y: CELL_SIZE * 18, direction: 0, color: '#00ffff'};
+    ghosts[3] = {x: CELL_SIZE * 18, y: CELL_SIZE * 9, direction: 0, color: '#ffa500'};
+    initDots();
+});
+
+function startLoadingSequence() {
+    let count = 1;
+    const sequence = ['2', '3', 'PACMAN!'];
+    
+    const loadingInterval = setInterval(() => {
+        if (count < sequence.length + 1) {
+            loadingScreen.textContent = sequence[count - 1];
+            count++;
+        } else {
+            clearInterval(loadingInterval);
+            loadingScreen.style.display = 'none';
+            gameBoard.style.display = 'block';
+            scoreDiv.style.display = 'block';
+            initGame();
+        }
+    }, 1000);
+}
+
+let pacman = {
+    x: CELL_SIZE,
+    y: CELL_SIZE,
+    direction: 0,
+    mouth: 0,
+    speed: 3  // Reduced from 5 for smoother movement
+};
+
+let ghosts = [
+    {x: CELL_SIZE * 18, y: CELL_SIZE * 18, direction: 0, color: '#ff0000'},
+    {x: CELL_SIZE * 18, y: CELL_SIZE, direction: 0, color: '#ff69b4'},
+    {x: CELL_SIZE, y: CELL_SIZE * 18, direction: 0, color: '#00ffff'},
+    {x: CELL_SIZE * 18, y: CELL_SIZE * 9, direction: 0, color: '#ffa500'}
+];
+
+let dots = [];
+
+function initDots() {
+    dots = [];
+    for(let i = 1; i < GRID_SIZE-1; i++) {
+        for(let j = 1; j < GRID_SIZE-1; j++) {
+            dots.push({x: i * CELL_SIZE, y: j * CELL_SIZE});
+        }
+    }
+}
+
+function drawPacman() {
+    ctx.beginPath();
+    
+    const gradient = ctx.createRadialGradient(
+        pacman.x + CELL_SIZE/2, pacman.y + CELL_SIZE/2, 0,
+        pacman.x + CELL_SIZE/2, pacman.y + CELL_SIZE/2, CELL_SIZE
+    );
+    gradient.addColorStop(0, '#ffff00');  
+    gradient.addColorStop(0.6, '#ffee00'); 
+    gradient.addColorStop(1, '#ffd700');   
+    ctx.fillStyle = gradient;
+    
+    const mouthSize = Math.abs(Math.sin(pacman.mouth)) * 0.3 + 0.1; 
+    
+    ctx.moveTo(pacman.x + CELL_SIZE/2, pacman.y + CELL_SIZE/2);
+    
+    ctx.arc(pacman.x + CELL_SIZE/2, pacman.y + CELL_SIZE/2, CELL_SIZE/1.4,
+            pacman.direction - mouthSize * Math.PI, 
+            pacman.direction + mouthSize * Math.PI);
+            
+    ctx.lineTo(pacman.x + CELL_SIZE/2, pacman.y + CELL_SIZE/2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#000000';
+    const eyeX = pacman.x + CELL_SIZE/2 + Math.cos(pacman.direction) * CELL_SIZE/3;
+    const eyeY = pacman.y + CELL_SIZE/2 + Math.sin(pacman.direction) * CELL_SIZE/3;
+    
+    ctx.beginPath();
+    ctx.arc(eyeX, eyeY, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(eyeX - 1, eyeY - 1, 2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.strokeStyle = '#ff8c00';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+}
+
+function drawGhost(ghost) {
+    const gradient = ctx.createRadialGradient(
+        ghost.x + CELL_SIZE/2, ghost.y + CELL_SIZE/2, 0,
+        ghost.x + CELL_SIZE/2, ghost.y + CELL_SIZE/2, CELL_SIZE
+    );
+    gradient.addColorStop(0, ghost.color);
+    gradient.addColorStop(1, shadeColor(ghost.color, -20));
+    ctx.fillStyle = gradient;
+    
+    ctx.beginPath();
+    ctx.arc(ghost.x + CELL_SIZE/2, ghost.y + CELL_SIZE/2, CELL_SIZE/2, Math.PI, 0);
+    ctx.rect(ghost.x, ghost.y + CELL_SIZE/2, CELL_SIZE, CELL_SIZE/2);
+    ctx.fill();
+    
+    ctx.beginPath();
+    for(let i = 0; i < 4; i++) {
+        ctx.arc(ghost.x + (i * CELL_SIZE/4), ghost.y + CELL_SIZE, CELL_SIZE/6, 0, Math.PI);
+    }
+    ctx.fill();
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(ghost.x + CELL_SIZE/3, ghost.y + CELL_SIZE/2, 4.5, 0, Math.PI * 2);
+    ctx.arc(ghost.x + 2*CELL_SIZE/3, ghost.y + CELL_SIZE/2, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#0000ff';
+    const pupilOffset = Math.sin(Date.now() / 500) * 1;
+    ctx.beginPath();
+    ctx.arc(ghost.x + CELL_SIZE/3 + pupilOffset, ghost.y + CELL_SIZE/2, 2.5, 0, Math.PI * 2);
+    ctx.arc(ghost.x + 2*CELL_SIZE/3 + pupilOffset, ghost.y + CELL_SIZE/2, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function shadeColor(color, percent) {
+    const num = parseInt(color.replace('#',''),16),
+    amt = Math.round(2.55 * percent),
+    R = (num >> 16) + amt,
+    G = (num >> 8 & 0x00FF) + amt,
+    B = (num & 0x0000FF) + amt;
+    return '#' + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
+}
+
+function drawDots() {
+    ctx.fillStyle = '#ffd700';
+    dots.forEach(dot => {
+        ctx.beginPath();
+        ctx.arc(dot.x + CELL_SIZE/2, dot.y + CELL_SIZE/2, 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function checkDotCollision() {
+    dots = dots.filter(dot => {
+        if (Math.abs(dot.x - pacman.x) < CELL_SIZE && 
+            Math.abs(dot.y - pacman.y) < CELL_SIZE) {
+            score += 10;
+            document.getElementById('score').textContent = score;
+            return false;
+        }
+        return true;
+    });
+
+    if (dots.length === 0) {
+        showModal('¡Felicitaciones!', '¡Has pasado al siguiente nivel!');
+    }
+}
+
+function moveGhosts() {
+    ghosts.forEach(ghost => {
+        if (Math.random() < 0.02) {
+            ghost.direction = Math.floor(Math.random() * 4);
+        }
+        
+        const moveAmount = 1;
+        
+        switch(ghost.direction) {
+            case 0: ghost.x += moveAmount; break;
+            case 1: ghost.x -= moveAmount; break;
+            case 2: ghost.y += moveAmount; break;
+            case 3: ghost.y -= moveAmount; break;
+        }
+        
+        ghost.x = Math.max(0, Math.min(ghost.x, canvas.width - CELL_SIZE));
+        ghost.y = Math.max(0, Math.min(ghost.y, canvas.height - CELL_SIZE));
+    });
+}
+
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    drawDots();
+    drawPacman();
+    ghosts.forEach(ghost => drawGhost(ghost));
+    
+    pacman.mouth += 0.03; // Even slower mouth animation
+    checkDotCollision();
+    moveGhosts();
+    
+    for(let ghost of ghosts) {
+        if (Math.abs(ghost.x - pacman.x) < CELL_SIZE && 
+            Math.abs(ghost.y - pacman.y) < CELL_SIZE) {
+            showModal('Game Over', 'Score: ' + score);
+            initDots();
+            score = 0;
+            level = 1;
+            document.getElementById('score').textContent = score;
+            pacman.x = CELL_SIZE;
+            pacman.y = CELL_SIZE;
+            ghosts[0] = {x: CELL_SIZE * 18, y: CELL_SIZE * 18, direction: 0, color: '#ff0000'};
+            ghosts[1] = {x: CELL_SIZE * 18, y: CELL_SIZE, direction: 0, color: '#ff69b4'};
+            ghosts[2] = {x: CELL_SIZE, y: CELL_SIZE * 18, direction: 0, color: '#00ffff'};
+            ghosts[3] = {x: CELL_SIZE * 18, y: CELL_SIZE * 9, direction: 0, color: '#ffa500'};
+            break;
+        }
+    }
+    
+    requestAnimationFrame(gameLoop);
+}
+
+function initGame() {
+    gameLoop();
+}
+
+function resizeCanvas() {
+    const maxWidth = Math.min(window.innerWidth - 40, 400);
+    const maxHeight = Math.min(window.innerHeight - 200, 400);
+    const size = Math.min(maxWidth, maxHeight);
+    
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+window.addEventListener('keydown', (e) => {
+    switch(e.key) {
+        case 'ArrowRight':
+            pacman.direction = 0;  
+            pacman.x += pacman.speed;
+            break;
+        case 'ArrowLeft':
+            pacman.direction = Math.PI;  
+            pacman.x -= pacman.speed;
+            break;
+        case 'ArrowDown':
+            pacman.direction = Math.PI/2;  
+            pacman.y += pacman.speed;
+            break;
+        case 'ArrowUp':
+            pacman.direction = -Math.PI/2;  
+            pacman.y -= pacman.speed;
+            break;
+    }
+    
+    pacman.x = Math.max(0, Math.min(pacman.x, canvas.width - CELL_SIZE));
+    pacman.y = Math.max(0, Math.min(pacman.y, canvas.height - CELL_SIZE));
+});
+
+initDots();
+showWelcomeScreen();
+</script>
+</body></html>
